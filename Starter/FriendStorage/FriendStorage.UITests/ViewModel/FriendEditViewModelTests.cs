@@ -1,4 +1,5 @@
 ﻿using FriendStorage.UI.DataProvider;
+using FriendStorage.UI.Dialogs;
 using FriendStorage.UI.Events;
 using FriendStorage.UI.ViewModel;
 using FriendStorage.UITests.Extensions;
@@ -20,6 +21,7 @@ namespace FriendStorage.UITests.ViewModel
     private Mock<FriendSavedEvent> _friendSavedEventMock;
     private Mock<IEventAggregator> _eventAggregatorMock;
     private Mock<IFriendDataProvider> _dataProviderMock;
+    private Mock<IMessageDialogService> _messageDialogServiceMock;
     private FriendEditViewModel _viewModel;
 
     public FriendEditViewModelTests()
@@ -32,7 +34,10 @@ namespace FriendStorage.UITests.ViewModel
 
       _dataProviderMock = new Mock<IFriendDataProvider>();
       _dataProviderMock.Setup(dp => dp.GetFriendById(_friendId)).Returns(new Model.Friend { Id = _friendId, FirstName = "Thomas" });
-      _viewModel = new FriendEditViewModel(_dataProviderMock.Object, _eventAggregatorMock.Object);
+
+      _messageDialogServiceMock = new Mock<IMessageDialogService>();
+
+      _viewModel = new FriendEditViewModel(_dataProviderMock.Object, _eventAggregatorMock.Object, _messageDialogServiceMock.Object);
     }
 
     [Fact]
@@ -179,25 +184,48 @@ namespace FriendStorage.UITests.ViewModel
       Assert.True(fired);
     }
 
-    [Fact]
-    public void ShouldCallDeleteFriendWhenDeleteCommandIsExecuted()
+    [Theory]
+    [InlineData(MessageDialogResult.Yes, 1)]
+    [InlineData(MessageDialogResult.No, 0)]
+    public void ShouldCallDeleteFriendWhenDeleteCommandIsExecuted(MessageDialogResult result, int expectedDeleteFriendCalls)
     {
       _viewModel.Load(_friendId);
 
+      _messageDialogServiceMock.Setup(ds => ds.ShowYesNoDialog(It.IsAny<string>(), It.IsAny<string>())).Returns(result);
+
       _viewModel.DeleteCommand.Execute(null);
 
-      _dataProviderMock.Verify(dp => dp.DeleteFriend(_friendId), Times.Once);
+      _dataProviderMock.Verify(dp => dp.DeleteFriend(_friendId), Times.Exactly(expectedDeleteFriendCalls));
+      _messageDialogServiceMock.Verify(ds => ds.ShowYesNoDialog(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
 
-    [Fact]
-    public void ShouldPublishFriendDeleteEventWhenDeleteCommandIsExecuted()
+    [Theory]
+    [InlineData(MessageDialogResult.Yes, 1)]
+    [InlineData(MessageDialogResult.No, 0)]
+    public void ShouldPublishFriendDeleteEventWhenDeleteCommandIsExecuted(MessageDialogResult result, int expectedPublishCalls)
     {
       _viewModel.Load(_friendId);
 
+      _messageDialogServiceMock.Setup(ds => ds.ShowYesNoDialog(It.IsAny<string>(), It.IsAny<string>())).Returns(result);
+
       _viewModel.DeleteCommand.Execute(null);
 
-      _friendDeletedEventMock.Verify(e => e.Publish(_friendId), Times.Once);
+      _friendDeletedEventMock.Verify(e => e.Publish(_friendId), Times.Exactly(expectedPublishCalls));
+      _messageDialogServiceMock.Verify(ds => ds.ShowYesNoDialog(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
 
+    [Fact]
+    public void ShouldDisplayCorrectMessageInDeleteDialog()
+    {
+      _viewModel.Load(_friendId);
+
+      var f = _viewModel.Friend;
+      f.FirstName = "Thomas";
+      f.LastName = "Huber";
+
+      _viewModel.DeleteCommand.Execute(null);
+
+      _messageDialogServiceMock.Verify(d => d.ShowYesNoDialog("Delete Friend", $"Do you really want to delete the friend '{f.FirstName} {f.LastName}'?"), Times.Once);
+    }
   }
 }
