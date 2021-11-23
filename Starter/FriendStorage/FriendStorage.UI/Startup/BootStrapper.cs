@@ -26,7 +26,7 @@ namespace FriendStorage.UI.Startup
       builder.RegisterType<FriendEditViewModel>().As<IFriendEditViewModel>();
       builder.RegisterType<FriendDataProvider>().As<IFriendDataProvider>();
       builder.RegisterType<EventAggregator>().As<IEventAggregator>().SingleInstance();
-      builder.RegisterType<MessageDialogService>().As<IMessageDialogService>();
+      builder.RegisterType<CustomMessageDialogService>().As<IMessageDialogService>();
 
       builder.RegisterType<MainWindow>().AsSelf();
       builder.RegisterType<MainViewModel>().AsSelf();
